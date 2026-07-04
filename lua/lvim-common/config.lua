@@ -9,6 +9,7 @@ local M = {}
 
 ---@type GxConfig
 M.gx = {
+    map = true, -- bind `gx` (normal mode) to :GxOpen on setup; false = register only the command, no keymap
     highlight_match = true,
     highlight_duration_ms = 300,
     system_open_cmd = nil, -- nil = auto-detect (xdg-open / open / start)

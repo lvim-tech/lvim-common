@@ -23,7 +23,8 @@ M.quit = require("lvim-common.quit")
 ---@field gx? GxConfig|false     gx opts (merged into lvim-common.config.gx); false / nil = leave gx inactive
 
 --- Activate the opt-in modules. `colorcolumn` is set up only when its opts are given; `gx` is set up when its
---- opts are given (pass `gx = {}` to activate it with defaults). The quit dialog needs no setup.
+--- opts are given (pass `gx = {}` to activate it with defaults). The `:LvimQuit` command (the save-selected
+--- quit dialog) is always registered here, so a consumer just calls setup and gets it — no manual command.
 ---@param opts? LvimCommonOpts
 function M.setup(opts)
     opts = opts or {}
@@ -33,6 +34,11 @@ function M.setup(opts)
     if opts.gx then
         M.gx.setup(opts.gx)
     end
+    -- The quit dialog is opened on demand; register its command so setup() gives it (like the other plugins'
+    -- :Lvim* commands). `:LvimQuit` lists the unsaved buffers to choose which to save before quitting.
+    pcall(vim.api.nvim_create_user_command, "LvimQuit", function()
+        M.quit.open()
+    end, { desc = "lvim-common: quit dialog (choose which unsaved buffers to save before quitting)" })
 end
 
 return M

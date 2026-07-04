@@ -778,6 +778,11 @@ function M.setup(opts)
     adapters_initialized = false
     ensure_adapters()
     create_commands()
+    -- Bind `gx` -> :GxOpen unless opted out (`map = false`), so a consumer just calls setup and gets the
+    -- mapping — no manual `map_default()`. The command is always created; only the keymap is gated.
+    if cfg.map ~= false then
+        M.map_default()
+    end
 end
 
 --- Bind gx → :GxOpen in normal mode.
