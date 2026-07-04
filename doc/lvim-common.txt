@@ -1,0 +1,94 @@
+*lvim-common.txt*             Editor quality-of-life modules from the lvim-tech set
+
+==============================================================================
+CONTENTS                                                    *lvim-common-contents*
+
+    1. Introduction ......................... |lvim-common-introduction|
+    2. Requirements ......................... |lvim-common-requirements|
+    3. Installation ......................... |lvim-common-installation|
+    4. Usage ................................ |lvim-common-usage|
+    5. Modules .............................. |lvim-common-modules|
+    6. Configuration ........................ |lvim-common-configuration|
+
+==============================================================================
+1. INTRODUCTION                                         *lvim-common-introduction*
+
+lvim-common is a small bundle of three independent editor quality-of-life
+modules under one plugin:
+
+- colorcolumn — keeps 'colorcolumn' meaningful under 'wrap' (drops any entry
+  that would wrap to a stray cell on a continuation row), with a per-filetype
+  exclusion list for side panels;
+- gx — "open under cursor": URLs / local files / directories under the cursor
+  opened via the system opener or revealed in your file manager;
+- quit — a quit dialog listing the unsaved buffers as toggle rows, so you choose
+  which to save before quitting.
+
+==============================================================================
+2. REQUIREMENTS                                         *lvim-common-requirements*
+
+- Neovim >= 0.12.x
+- lvim-utils (base — gx uses it)
+- lvim-ui (the quit dialog builds on its float toolkit)
+
+==============================================================================
+3. INSTALLATION                                         *lvim-common-installation*
+
+lvim-installer (recommended): >vim
+    :LvimInstaller plugins
+<
+Native (vim.pack): >lua
+    vim.pack.add({
+        { src = "https://github.com/lvim-tech/lvim-utils" },
+        { src = "https://github.com/lvim-tech/lvim-ui" },
+        { src = "https://github.com/lvim-tech/lvim-common" },
+    })
+    require("lvim-common").setup({ colorcolumn = { enabled = true }, gx = {} })
+<
+==============================================================================
+4. USAGE                                                       *lvim-common-usage*
+
+setup() activates the opt-in modules: colorcolumn (when its opts are given) and
+gx (pass `gx = {}` for defaults). The quit dialog needs no setup. >vim
+    :GxOpen        " open the URL / file / directory under the cursor
+    :GxOpenDiag    " open with diagnostics about what was detected
+<
+Lua API: >lua
+    local common = require("lvim-common")
+    common.gx.map_default()               -- bind `gx` to :GxOpen
+    common.gx.open_current()              -- trigger GxOpen at the cursor
+    common.quit.open()                    -- open the quit dialog
+    common.quit.open({ confirm = false }) -- skip the dialog, force :qa!
+<
+==============================================================================
+5. MODULES                                                   *lvim-common-modules*
+
+colorcolumn ~
+    M.setup({ enabled, exclude_ft }). Installs autocmds that recompute
+    'colorcolumn' so it never renders on a wrapped continuation row. `exclude_ft`
+    is a list of filetypes whose windows are forced to no colorcolumn.
+
+gx ~
+    M.setup(opts) merges into the live config and registers :GxOpen / :GxOpenDiag.
+    M.map_default() binds `gx`; M.open_current() triggers it at the cursor. It
+    detects URLs / files / directories and opens them via the system opener, or
+    reveals a path in your file manager (adapters, see the config).
+
+quit ~
+    M.open({ confirm? }). Lists unsaved normal buffers as toggle rows; choose
+    which to save, quit without saving, or cancel. Quits immediately when nothing
+    is dirty. `confirm = false` skips the dialog and forces :qa!.
+
+==============================================================================
+6. CONFIGURATION                                       *lvim-common-configuration*
+
+                                                            *lvim-common.setup()*
+require("lvim-common").setup({opts})
+
+Merges {opts} in place: `gx` opts merge into the live `lvim-common.config.gx`;
+`colorcolumn` opts are read directly by its setup. Both modules are opt-in (set
+up only when their key is present). The quit dialog is configured per call, not
+through setup(). See the README for the FULL default config; the gx option set is
+documented as `GxConfig` in `lua/lvim-common/gx.lua`.
+
+vim:tw=78:ts=8:ft=help:norl:
