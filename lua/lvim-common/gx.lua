@@ -15,7 +15,7 @@ local config_mod = require("lvim-common.config")
 local merge = require("lvim-utils.utils").merge
 local M = {}
 
-local uv = vim.uv or vim.loop
+local uv = vim.uv
 
 local _NS = vim.api.nvim_create_namespace("LvimGxTempHL")
 
@@ -34,6 +34,7 @@ local _NS = vim.api.nvim_create_namespace("LvimGxTempHL")
 ---@field pattern                   string          Lua pattern used to extract tokens from a line
 ---@field adapters                  table<string, boolean>  Enable/disable built-in adapters by name
 ---@field extra_adapters            table           Additional adapter definitions to register
+---@field map                       boolean         Bind gx → :GxOpen on setup (false = command only)
 
 ---@type GxConfig
 local cfg = config_mod.gx
@@ -500,8 +501,7 @@ local function sys_open(target, kind)
         return false
     end
     local cmd = opener == "start" and { "cmd", "/c", "start", "", target } or { opener, target }
-    local ok, jid = pcall(vim.fn.jobstart, cmd, { detach = true })
-    return ok and jid > 0
+    return pcall(vim.system, cmd, { detach = true })
 end
 
 --- Jump the cursor to a 1-based line / column in the current window.
@@ -567,8 +567,7 @@ local function open_target(target, meta)
     if not exists(file) then
         -- Last resort: treat as a bare domain/repo and open as HTTPS.
         if is_domain_repo(file) then
-            sys_open("https://" .. file, "url")
-            return true
+            return sys_open("https://" .. file, "url")
         end
         return false
     end
@@ -707,14 +706,21 @@ end
 --- Try each candidate in order until one opens successfully.
 --- Highlights and repositions the cursor on the matched token.
 ---@param candidates GxCandidate[]
-local function execute(candidates)
+---@param ctx GxContext
+local function execute(candidates, ctx)
     if #candidates == 0 then
         return
     end
     for _, c in ipairs(candidates) do
         if open_target(c.text, c.meta) then
-            if c.meta and c.meta.lnum and c.meta.start_col and c.meta.end_col then
-                highlight_temp(0, c.meta.lnum - 1, c.meta.start_col - 1, c.meta.end_col)
+            if
+                c.meta
+                and c.meta.lnum
+                and c.meta.start_col
+                and c.meta.end_col
+                and vim.api.nvim_get_current_buf() == ctx.bufnr
+            then
+                highlight_temp(ctx.bufnr, c.meta.lnum - 1, c.meta.start_col - 1, c.meta.end_col)
                 pcall(vim.api.nvim_win_set_cursor, 0, { c.meta.lnum, c.meta.start_col - 1 })
             end
             return
@@ -735,7 +741,8 @@ local function create_commands()
 
     -- :GxOpen [target]  — open the target under the cursor (or the given argument).
     vim.api.nvim_create_user_command("GxOpen", function(opts)
-        execute((resolve(opts.args)))
+        local candidates, ctx = resolve(opts.args)
+        execute(candidates, ctx)
     end, { nargs = "?", complete = "file", desc = "GxOpen: open URL / file / dir under cursor" })
 
     -- :GxOpenDiag  — print context, detected adapter, and first 10 candidates.
@@ -792,7 +799,8 @@ end
 
 --- Programmatically trigger GxOpen on the current cursor position.
 function M.open_current()
-    execute((resolve("")))
+    local candidates, ctx = resolve("")
+    execute(candidates, ctx)
 end
 
 return M

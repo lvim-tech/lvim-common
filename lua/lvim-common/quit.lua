@@ -101,12 +101,13 @@ local function try_write(bufnr, fname)
     if dir ~= "" and vim.fn.isdirectory(dir) == 0 then
         vim.fn.mkdir(dir, "p")
     end
-    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-    if not pcall(vim.fn.writefile, lines, fname) then
+    local ok = pcall(vim.api.nvim_buf_call, bufnr, function()
+        vim.cmd("silent keepalt write! " .. vim.fn.fnameescape(fname))
+    end)
+    if not ok then
         return false
     end
-    pcall(vim.api.nvim_set_option_value, "modified", false, { buf = bufnr })
-    return (vim.uv or vim.loop).fs_stat(fname) ~= nil
+    return vim.uv.fs_stat(fname) ~= nil
 end
 
 --- Issue :qa or :qa! depending on whether any buffer is still dirty.
@@ -219,26 +220,29 @@ function M.open(opts)
                         prompt_unnamed(idx + 1)
                         return
                     end
-                    vim.ui.input({ prompt = "Save [No Name #" .. b .. "] as: " }, function(input)
-                        if not input or input == "" then
-                            saved[b] = false
-                        else
-                            local path = vim.fn.expand(input)
-                            if not vim.startswith(path, "/") then
-                                path = vim.fn.getcwd() .. "/" .. path
-                            end
-                            if pcall(vim.api.nvim_buf_set_name, b, path) then
-                                saved[b] = try_write(b, path)
-                                if not saved[b] then
-                                    vim.notify("Failed to write: " .. path, vim.log.levels.ERROR)
-                                end
-                            else
+                    require("lvim-ui").input({
+                        prompt = "Save [No Name #" .. b .. "] as:",
+                        callback = function(confirmed, input)
+                            if confirmed ~= true or not input or input == "" then
                                 saved[b] = false
-                                vim.notify("Failed to set buffer name", vim.log.levels.ERROR)
+                            else
+                                local path = vim.fn.expand(input)
+                                if not vim.startswith(path, "/") then
+                                    path = vim.fn.getcwd() .. "/" .. path
+                                end
+                                if pcall(vim.api.nvim_buf_set_name, b, path) then
+                                    saved[b] = try_write(b, path)
+                                    if not saved[b] then
+                                        vim.notify("Failed to write: " .. path, vim.log.levels.ERROR)
+                                    end
+                                else
+                                    saved[b] = false
+                                    vim.notify("Failed to set buffer name", vim.log.levels.ERROR)
+                                end
                             end
-                        end
-                        prompt_unnamed(idx + 1)
-                    end)
+                            prompt_unnamed(idx + 1)
+                        end,
+                    })
                 end
 
                 prompt_unnamed(1)
