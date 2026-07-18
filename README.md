@@ -6,7 +6,10 @@ one plugin:
 - **colorcolumn** — keeps `'colorcolumn'` meaningful under `'wrap'`: it drops any colorcolumn entry that would
   otherwise wrap to a stray cell on a continuation row, with a per-filetype exclusion list for side panels.
 - **gx** — "open under cursor": URLs, local files and directories under the cursor are opened via the system
-  opener (or revealed in your file manager). `:GxOpen` / `:GxOpenDiag`, or map `gx`.
+  opener (or revealed in your file manager). `:GxOpen` / `:GxOpenDiag`, or map `gx`. Built-in file-manager
+  adapters resolve the real path of the entry under the cursor (neo-tree, nvim-tree, oil, mini.files, netrw);
+  the suite's own tree, **lvim-files**, self-registers its adapter from its own `setup()` via
+  `require("lvim-common.gx").register_adapter(...)`, so no wiring is needed on either side.
 - **quit** — a quit dialog that lists the unsaved buffers as toggle rows so you can choose which to save before
   quitting (or quit immediately when nothing is dirty).
 
@@ -67,6 +70,7 @@ require("lvim-common").setup({
 
     -- gx — activated only when this key is present (pass `gx = {}` for defaults).
     gx = {
+        map = true, -- bind `gx` (normal mode) to :GxOpen on setup; false = command only, no keymap
         highlight_match = true, -- flash the matched token when opening
         highlight_duration_ms = 300,
         system_open_cmd = nil, -- nil = auto-detect (xdg-open / open / start)
@@ -79,13 +83,18 @@ require("lvim-common").setup({
         search_max_lines = 60, -- proximity scan bound
         max_sequential_candidates = 200,
         pattern = "[%w%._~/#%-%+%%%?=&@:%d]+", -- the token pattern
-        -- Reveal-in-file-manager adapters: each toggles support for one file manager and activates only if it
-        -- is present. See lua/lvim-common/config.lua for the full list; register your own via extra_adapters.
+        -- File-manager adapters: each resolves the real path of the entry under the cursor in that
+        -- manager's buffer, and activates only if that manager is actually present.
         adapters = {
+            neo_tree = true,
+            nvim_tree = true,
+            oil = true,
+            mini_files = true,
             netrw = true, -- Neovim's built-in file explorer
-            -- … additional adapters are enabled by default; see config.lua
         },
-        extra_adapters = {}, -- register your own reveal adapter: { name = { detect = fn, reveal = fn } }
+        -- Register your own file-manager adapter: a flat def
+        -- `{ name = "id", detect = function(ctx) … end, get = function(ctx) return { path, type } end }`.
+        extra_adapters = {},
     },
 })
 ```

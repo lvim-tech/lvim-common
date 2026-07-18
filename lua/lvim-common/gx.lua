@@ -3,6 +3,12 @@
 -- nvim-tree, oil, mini.files, netrw) via registered adapters, then falls back to a proximity
 -- scan of nearby lines. Reads its live config from `config.gx` (merged in place by setup).
 --
+-- The suite's own tree, lvim-files, is NOT a built-in adapter here (that would make gx aware of
+-- every suite plugin); instead lvim-files SELF-REGISTERS its adapter from its own setup() via
+-- `M.register_adapter` — exactly the seam third parties use. Because registration must work in any
+-- load order relative to gx.setup(), externally registered adapters are kept in a persistent list
+-- that survives setup() re-runs (the same pattern as lvim-utils.cursor.register).
+--
 -- Public API:
 --   M.setup(opts?)          – initialise with optional config overrides
 --   M.register_adapter(def) – add a custom file-manager adapter at runtime
@@ -39,8 +45,11 @@ local _NS = vim.api.nvim_create_namespace("LvimGxTempHL")
 ---@type GxConfig
 local cfg = config_mod.gx
 
----@type table  List of registered adapter definitions.
+---@type GxAdapter[]  Live list scanned per open: built-ins + cfg.extra_adapters + registered.
 local adapters = {}
+---@type GxAdapter[]  Externally registered adapters (via M.register_adapter). Persist across
+--- setup() re-runs so self-registration (e.g. lvim-files) is load-order-independent.
+local registered_adapters = {}
 local adapters_initialized = false
 
 -- ─── environment ──────────────────────────────────────────────────────────────
@@ -418,17 +427,23 @@ local builders = {
 
 -- ─── adapter registry ─────────────────────────────────────────────────────────
 
---- Register a custom file-manager adapter.
---- The definition must have: name (string), detect (function), get (function).
+--- Register a custom file-manager adapter (the cross-plugin seam — e.g. lvim-files registers its
+--- tree adapter from its own setup()). The definition must have: name (string), detect (function),
+--- get (function). Kept in a persistent list so it survives gx.setup() re-runs; when the live list
+--- is already built it is appended immediately, so registration works in ANY load order.
 ---@param def GxAdapter
 function M.register_adapter(def)
     if not def or not def.name or not def.detect or not def.get then
         return
     end
-    adapters[#adapters + 1] = def
+    registered_adapters[#registered_adapters + 1] = def
+    if adapters_initialized then
+        adapters[#adapters + 1] = def
+    end
 end
 
---- Build and register all enabled built-in adapters. Runs once per setup().
+--- Build the live adapter list: enabled built-ins, cfg.extra_adapters, then the persistent
+--- externally-registered adapters. Runs once until the next setup() reset.
 local function ensure_adapters()
     if adapters_initialized then
         return
@@ -437,12 +452,15 @@ local function ensure_adapters()
         if cfg.adapters[k] then
             local ok, d = pcall(b)
             if ok and d then
-                M.register_adapter(d)
+                adapters[#adapters + 1] = d
             end
         end
     end
     for _, d in ipairs(cfg.extra_adapters or {}) do
-        M.register_adapter(d)
+        adapters[#adapters + 1] = d
+    end
+    for _, d in ipairs(registered_adapters) do
+        adapters[#adapters + 1] = d
     end
     adapters_initialized = true
 end
