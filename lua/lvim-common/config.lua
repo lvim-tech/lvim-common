@@ -23,9 +23,9 @@ M.gx = {
     max_sequential_candidates = 200,
     pattern = "[%w%._~/#%-%+%%%?=&@:%d]+",
 
-    -- Reveal-in-file-manager adapters: each toggles the built-in "reveal this path in your file manager"
-    -- support for one file manager, and activates only if that manager is actually present. Register your own
-    -- with `extra_adapters`.
+    -- File-manager adapters: each teaches gx to read the ENTRY UNDER THE CURSOR from one file manager's
+    -- tree/panel (so `gx` on a tree row opens that entry's real path), and activates only if that manager is
+    -- actually present. Register your own with `extra_adapters`.
     adapters = {
         neo_tree = true,
         nvim_tree = true,

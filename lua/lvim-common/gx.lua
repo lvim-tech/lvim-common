@@ -505,21 +505,27 @@ end
 -- ─── open dispatcher ─────────────────────────────────────────────────────────
 
 --- Invoke the OS system opener (xdg-open / open / start) for a target.
---- Local files require force_system_open_local = true.
---- Headless environments without a display are skipped for local files.
+--- Gating is per-kind and independent: URLs always open; local FILES require
+--- force_system_open_local; DIRECTORIES require dir_open_strategy == "system"
+--- (the two flags never cross-couple). Headless environments without a display
+--- are skipped for every non-url kind.
 ---@param target string
----@param kind   "url"|"file"
+---@param kind   "url"|"file"|"dir"
 ---@return boolean  true on success
 local function sys_open(target, kind)
     local opener = detect_opener()
-    if kind ~= "url" and not cfg.force_system_open_local then
+    if kind == "file" and not cfg.force_system_open_local then
+        return false
+    end
+    if kind == "dir" and cfg.dir_open_strategy ~= "system" then
         return false
     end
     if kind ~= "url" and env_headless() then
         return false
     end
     local cmd = opener == "start" and { "cmd", "/c", "start", "", target } or { opener, target }
-    return pcall(vim.system, cmd, { detach = true })
+    local ok = pcall(vim.system, cmd, { detach = true })
+    return ok
 end
 
 --- Jump the cursor to a 1-based line / column in the current window.
@@ -591,11 +597,10 @@ local function open_target(target, meta)
     end
 
     if is_dir(file) then
-        if cfg.dir_open_strategy == "system" then
-            if not sys_open(file, "file") then
-                vim.cmd.edit(vim.fn.fnameescape(file))
-            end
-        else
+        -- sys_open("dir") returns false unless dir_open_strategy == "system" (and a display exists),
+        -- so this cleanly falls back to :edit for the "edit" strategy / headless — independent of the
+        -- unrelated force_system_open_local (files) flag.
+        if not sys_open(file, "dir") then
             vim.cmd.edit(vim.fn.fnameescape(file))
         end
         return true

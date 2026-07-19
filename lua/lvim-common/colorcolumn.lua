@@ -185,7 +185,7 @@ local function refresh_autocmds()
         return
     end
 
-    state.augroup = api.nvim_create_augroup("LvimUtilsColorColumn", { clear = true })
+    state.augroup = api.nvim_create_augroup("LvimCommonColorColumn", { clear = true })
 
     -- Focus / display / size changes that can alter a window's text width or its filetype.
     api.nvim_create_autocmd({ "WinEnter", "BufWinEnter", "WinResized", "VimResized", "FileType" }, {

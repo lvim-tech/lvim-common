@@ -8,8 +8,9 @@
 --
 ---@module "lvim-common.quit"
 
-local ui = require("lvim-ui")
-local util = require("lvim-ui.util")
+-- lvim-ui is required lazily inside M.open (the only entry that needs it) so the lvim-common
+-- aggregate — and its gx / colorcolumn modules, which don't touch lvim-ui — still load when
+-- lvim-ui is absent; only opening the dialog then reports the missing dependency.
 
 local M = {}
 
@@ -35,6 +36,7 @@ local ROOT_MARKERS = {
 ---@param max integer
 ---@return string
 local function elide_middle(p, max)
+    local util = require("lvim-ui.util")
     if util.dw(p) <= max then
         return p
     end
@@ -144,6 +146,14 @@ end
 function M.open(opts)
     opts = opts or {}
 
+    -- confirm = false: skip the dialog entirely and force-quit, discarding unsaved changes.
+    if opts.confirm == false then
+        vim.cmd("qa!")
+        return
+    end
+
+    local ui = require("lvim-ui")
+
     -- Collect unsaved normal buffers.
     local unsaved = {}
     for _, info in ipairs(vim.fn.getbufinfo({ bufloaded = 1 })) do
@@ -199,11 +209,16 @@ function M.open(opts)
 
             vim.schedule(function()
                 local saved = {}
+                -- Count of SELECTED buffers whose save failed or whose save-as prompt was cancelled.
+                -- These are distinct from unticked rows (the user chose not to save those → legitimate
+                -- discard); a non-zero `failed` means we must NOT quit — the user asked to save them.
+                local failed = 0
 
                 -- Write named buffers immediately.
                 for _, b in ipairs(named) do
                     saved[b] = try_write(b)
                     if not saved[b] then
+                        failed = failed + 1
                         vim.notify("Failed to write: " .. vim.api.nvim_buf_get_name(b), vim.log.levels.ERROR)
                     end
                 end
@@ -211,6 +226,13 @@ function M.open(opts)
                 -- Prompt for a path for each unnamed buffer.
                 local function prompt_unnamed(idx)
                     if idx > #unnamed then
+                        -- A failed / cancelled save of a buffer the user asked to KEEP must not be
+                        -- discarded: abort the quit and stay open so the user can react. Only quit
+                        -- when every selected buffer was actually written.
+                        if failed > 0 then
+                            vim.notify(failed .. " buffer(s) could not be saved — staying open", vim.log.levels.WARN)
+                            return
+                        end
                         finalize_quit(saved, unsaved)
                         return
                     end
@@ -224,7 +246,10 @@ function M.open(opts)
                         prompt = "Save [No Name #" .. b .. "] as:",
                         callback = function(confirmed, input)
                             if confirmed ~= true or not input or input == "" then
+                                -- Cancelled save-as → the user did not decline saving, the save was
+                                -- interrupted; treat as a failure so the buffer is not discarded.
                                 saved[b] = false
+                                failed = failed + 1
                             else
                                 local path = vim.fn.expand(input)
                                 if not vim.startswith(path, "/") then
@@ -233,10 +258,12 @@ function M.open(opts)
                                 if pcall(vim.api.nvim_buf_set_name, b, path) then
                                     saved[b] = try_write(b, path)
                                     if not saved[b] then
+                                        failed = failed + 1
                                         vim.notify("Failed to write: " .. path, vim.log.levels.ERROR)
                                     end
                                 else
                                     saved[b] = false
+                                    failed = failed + 1
                                     vim.notify("Failed to set buffer name", vim.log.levels.ERROR)
                                 end
                             end
