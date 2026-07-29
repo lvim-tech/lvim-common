@@ -1,6 +1,6 @@
 # lvim-common
 
-A small bundle of editor quality-of-life modules from the **lvim-tech** set — three independent pieces under
+A small bundle of editor quality-of-life modules from the **lvim-tech** set — independent pieces under
 one plugin:
 
 - **colorcolumn** — keeps `'colorcolumn'` meaningful under `'wrap'`: it drops any colorcolumn entry that would
@@ -12,6 +12,13 @@ one plugin:
   `require("lvim-common.gx").register_adapter(...)`, so no wiring is needed on either side.
 - **quit** — a quit dialog that lists the unsaved buffers as toggle rows so you can choose which to save before
   quitting (or quit immediately when nothing is dirty).
+- **comments** — strip every comment from the buffer, judged by the **grammar** rather than a regex, so a `#`
+  inside a string or a URL in a `//` link is never mistaken for one. Whole-line comments take their line;
+  inline ones are excised in place. `:LvimComments strip`.
+- **lua_table** — sort a Lua table's `["key"]` lines alphabetically, for the tables that are really registries
+  and are read by lookup rather than top to bottom. `:LvimLuaTable sort`.
+- **eval** — run an Ex command (`:version`) or a Lua expression (`1+1`) and show what it produced in the shared
+  read-only viewer. `print` output during the call is captured too. `:LvimEval`.
 
 ## Requirements
 
@@ -45,6 +52,10 @@ activate it with defaults). The quit dialog needs no setup — open it on demand
 ```vim
 :GxOpen        " open the URL / file / directory under the cursor
 :GxOpenDiag    " open with diagnostics about what was detected
+:LvimQuit      " the quit dialog
+:LvimComments  " strip every comment from the buffer (`strip` is the default subcommand)
+:LvimLuaTable  " sort the buffer's Lua bracket-key lines (`sort`)
+:LvimEval      " run an Ex command or Lua expression, show the output
 ```
 
 ```lua

@@ -3,7 +3,10 @@
 --                 stray cell on a continuation row), with a per-filetype/buffer exclusion list;
 --   gx          — "open under cursor": URLs / local files / directories opened via the system opener or a
 --                 reveal-in-file-manager adapter (:GxOpen, or map `gx`);
---   quit        — a quit dialog that lets you choose which unsaved buffers to save before quitting.
+--   quit        — a quit dialog that lets you choose which unsaved buffers to save before quitting;
+--   comments    — strip every comment from the buffer, through treesitter (:LvimComments strip);
+--   lua_table   — sort a Lua table's bracket-key lines alphabetically (:LvimLuaTable sort);
+--   eval        — run an Ex command or Lua expression and show the output (:LvimEval).
 --
 -- Each module is independent and reachable through the aggregate (`require("lvim-common").gx`, `.quit`,
 -- `.colorcolumn`). setup() merges the `colorcolumn` / `gx` opts and activates those two; the quit dialog is
@@ -17,6 +20,9 @@ M.config = require("lvim-common.config")
 M.colorcolumn = require("lvim-common.colorcolumn")
 M.gx = require("lvim-common.gx")
 M.quit = require("lvim-common.quit")
+M.comments = require("lvim-common.comments")
+M.lua_table = require("lvim-common.lua_table")
+M.eval = require("lvim-common.eval")
 
 ---@class LvimCommonOpts
 ---@field colorcolumn? table    colorcolumn opts (enabled / exclude_ft)
@@ -39,6 +45,29 @@ function M.setup(opts)
     pcall(vim.api.nvim_create_user_command, "LvimQuit", function()
         M.quit.open()
     end, { desc = "lvim-common: quit dialog (choose which unsaved buffers to save before quitting)" })
+    -- The on-demand editor utilities get their commands here too, for the same reason: a consumer
+    -- calls setup() and has them, instead of re-declaring a command per host config.
+    pcall(vim.api.nvim_create_user_command, "LvimComments", function(cmd)
+        if cmd.args == "" or cmd.args == "strip" then
+            M.comments.strip()
+        else
+            vim.notify("lvim-common: unknown :LvimComments subcommand '" .. cmd.args .. "'", vim.log.levels.WARN)
+        end
+    end, { nargs = "?", complete = function()
+        return { "strip" }
+    end, desc = "lvim-common: strip every comment from the buffer (treesitter)" })
+    pcall(vim.api.nvim_create_user_command, "LvimLuaTable", function(cmd)
+        if cmd.args == "" or cmd.args == "sort" then
+            M.lua_table.sort()
+        else
+            vim.notify("lvim-common: unknown :LvimLuaTable subcommand '" .. cmd.args .. "'", vim.log.levels.WARN)
+        end
+    end, { nargs = "?", complete = function()
+        return { "sort" }
+    end, desc = "lvim-common: sort a Lua table's bracket-key lines" })
+    pcall(vim.api.nvim_create_user_command, "LvimEval", function()
+        M.eval.open()
+    end, { desc = "lvim-common: run an Ex command or Lua expression and show the output" })
 end
 
 return M

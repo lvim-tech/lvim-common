@@ -52,6 +52,10 @@ setup() activates the opt-in modules: colorcolumn (when its opts are given) and
 gx (pass `gx = {}` for defaults). The quit dialog needs no setup. >vim
     :GxOpen        " open the URL / file / directory under the cursor
     :GxOpenDiag    " open with diagnostics about what was detected
+    :LvimQuit      " the quit dialog
+    :LvimComments  " strip every comment (grammar-judged); `strip` is the default
+    :LvimLuaTable  " sort the buffer's Lua ["key"] lines; `sort` is the default
+    :LvimEval      " run an Ex command or Lua expression, show the output
 <
 Lua API: >lua
     local common = require("lvim-common")
@@ -59,7 +63,18 @@ Lua API: >lua
     common.gx.open_current()              -- trigger GxOpen at the cursor
     common.quit.open()                    -- open the quit dialog
     common.quit.open({ confirm = false }) -- skip the dialog, force :qa!
+    common.comments.strip()               -- strip every comment from the buffer
+    common.lua_table.sort()               -- sort the buffer's ["key"] lines
+    common.eval.open()                    -- prompt, run, show the output
 <
+`comments.strip()` asks the GRAMMAR what a comment is, so a `#` inside a string
+or a URL in a `//` link is never mistaken for one; a whole-line comment takes
+its line, an inline one is excised in place, and the edits are applied
+bottom-up so the rows still ahead stay valid.
+
+`eval.open()` treats a leading `:` as an Ex command and anything else as Lua —
+first as an expression (`1+1` answers `2`), then as a statement, with `print`
+captured during the call. The result opens in the shared read-only viewer.
 ==============================================================================
 5. MODULES                                                   *lvim-common-modules*
 
