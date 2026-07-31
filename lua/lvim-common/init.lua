@@ -53,18 +53,26 @@ function M.setup(opts)
         else
             vim.notify("lvim-common: unknown :LvimComments subcommand '" .. cmd.args .. "'", vim.log.levels.WARN)
         end
-    end, { nargs = "?", complete = function()
-        return { "strip" }
-    end, desc = "lvim-common: strip every comment from the buffer (treesitter)" })
+    end, {
+        nargs = "?",
+        complete = function()
+            return { "strip" }
+        end,
+        desc = "lvim-common: strip every comment from the buffer (treesitter)",
+    })
     pcall(vim.api.nvim_create_user_command, "LvimLuaTable", function(cmd)
         if cmd.args == "" or cmd.args == "sort" then
             M.lua_table.sort()
         else
             vim.notify("lvim-common: unknown :LvimLuaTable subcommand '" .. cmd.args .. "'", vim.log.levels.WARN)
         end
-    end, { nargs = "?", complete = function()
-        return { "sort" }
-    end, desc = "lvim-common: sort a Lua table's bracket-key lines" })
+    end, {
+        nargs = "?",
+        complete = function()
+            return { "sort" }
+        end,
+        desc = "lvim-common: sort a Lua table's bracket-key lines",
+    })
     pcall(vim.api.nvim_create_user_command, "LvimEval", function()
         M.eval.open()
     end, { desc = "lvim-common: run an Ex command or Lua expression and show the output" })
