@@ -9,6 +9,14 @@
 
 local M = {}
 
+--- One INLINE comment to excise: the row it sits on and the byte span it occupies there. Rows/columns
+--- are the 0-based, end-exclusive form `TSNode:range()` returns, so they index the buffer API directly.
+---@class LvimCommentEdit
+---@field row       integer  0-based row the comment sits on
+---@field start_col integer  0-based byte column the comment starts at
+---@field end_col   integer  0-based byte column one PAST the comment's last byte
+---@field type      "partial"  the only kind recorded here (whole-line comments take their row instead)
+
 function M.strip()
     local bufnr = vim.api.nvim_get_current_buf()
     local ft = vim.bo[bufnr].filetype
