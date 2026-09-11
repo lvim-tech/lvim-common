@@ -13,8 +13,8 @@ CONTENTS                                                    *lvim-common-content
 ==============================================================================
 1. INTRODUCTION                                         *lvim-common-introduction*
 
-lvim-common is a small bundle of three independent editor quality-of-life
-modules under one plugin:
+lvim-common is a small bundle of independent editor quality-of-life modules
+under one plugin, among them:
 
 - colorcolumn — keeps 'colorcolumn' meaningful under 'wrap' (drops any entry
   that would wrap to a stray cell on a continuation row), with a per-filetype
@@ -22,7 +22,9 @@ modules under one plugin:
 - gx — "open under cursor": URLs / local files / directories under the cursor
   opened via the system opener or revealed in your file manager;
 - quit — a quit dialog listing the unsaved buffers as toggle rows, so you choose
-  which to save before quitting.
+  which to save before quitting;
+- print — the buffer, or a range of it, to a printer or to a PDF: what
+  `:hardcopy` did before Neovim 0.9 removed it.
 
 ==============================================================================
 2. REQUIREMENTS                                         *lvim-common-requirements*
@@ -30,6 +32,8 @@ modules under one plugin:
 - Neovim >= 0.12.x
 - lvim-utils (base — gx uses it)
 - lvim-ui (the quit dialog builds on its float toolkit)
+- for :LvimPrint: a Chromium-family browser (chromium, google-chrome, brave,
+  edge — Firefox has no command-line print-to-PDF), and CUPS (`lp`) for paper
 
 ==============================================================================
 3. INSTALLATION                                         *lvim-common-installation*
@@ -56,6 +60,7 @@ gx (pass `gx = {}` for defaults). The quit dialog needs no setup. >vim
     :LvimComments  " strip every comment (grammar-judged); `strip` is the default
     :LvimLuaTable  " sort the buffer's Lua ["key"] lines; `sort` is the default
     :LvimEval      " run an Ex command or Lua expression, show the output
+    :LvimPrint     " print: the dialog (a PDF or a CUPS printer)
 <
 Lua API: >lua
     local common = require("lvim-common")
@@ -66,6 +71,9 @@ Lua API: >lua
     common.comments.strip()               -- strip every comment from the buffer
     common.lua_table.sort()               -- sort the buffer's ["key"] lines
     common.eval.open()                    -- prompt, run, show the output
+    common.print.open(range?)             -- the print dialog
+    common.print.to_pdf(path, range?)     -- the buffer to a PDF
+    common.print.to_printer(dest?, range?) -- the buffer to a printer
 <
 `comments.strip()` asks the GRAMMAR what a comment is, so a `#` inside a string
 or a URL in a `//` link is never mistaken for one; a whole-line comment takes
@@ -94,16 +102,78 @@ quit ~
     which to save, quit without saving, or cancel. Quits immediately when nothing
     is dirty. `confirm = false` skips the dialog and forces :qa!.
 
+print ~                                                        *:LvimPrint*
+    :[range]LvimPrint                  the print dialog, in the middle of the
+                                       screen
+    :[range]LvimPrint pdf [{file}]     straight to a PDF; without {file} it
+                                       asks, the buffer's name with .pdf as
+                                       the default
+    :[range]LvimPrint printer [{dest}] straight to a printer, with its
+                                       settings; without {dest}, the CUPS
+                                       default (or `print.printer`)
+    With a [range] (`:'<,'>LvimPrint`) only those lines are printed.
+
+    The dialog: the target (a PDF file or any CUPS printer that accepts
+    jobs, the default first), the lines (a range can be widened back to the
+    whole buffer), colours, line numbers, paper, orientation, and for a
+    printer the copies and two-sided printing. Switching the target to
+    another printer loads THAT printer's settings (`print.printers`). `p`
+    prints, `c` / `q` / <Esc> cancel.
+
+    The page is the editor's own rendering: Neovim's bundled `tohtml` (the
+    optional package nvim.tohtml, added on first use) turns the buffer into
+    HTML with the colorscheme, treesitter and syntax highlighting; a headless
+    Chromium lays it out on paper, with the file name at the top of every
+    page and "page / pages" at the bottom; `lp` sends it to CUPS. Long lines
+    wrap, and the continuation lines up after the numbers.
+
+    It is rendered from a hidden window of its own, so the page never
+    depends on how YOUR window looks: line numbers are always absolute
+    ('relativenumber' and a custom 'statuscolumn' are not printed), every
+    fold is open, and there are no signs, cursorline or colorcolumn.
+
+    Colours: "theme" keeps the colorscheme, background included — a PDF
+    that looks like the screen; "mono" is black on white with bold and
+    italic kept, the printer default, since a dark background from a laser
+    printer is a page of toner.
+
+    The printer always gets `-o media=<paper>`: the PDF is laid out on that
+    sheet, and a printer left at another default (many ship with Letter)
+    would otherwise scale every page.
+
+    M.open(range?), M.to_pdf(path, range?), M.to_printer(dest?, range?),
+    M.run(job), M.job(kind, target?, range?), M.settings(dest?),
+    M.printers() -> names, default, M.browser() -> exe|nil.
+
 ==============================================================================
 6. CONFIGURATION                                       *lvim-common-configuration*
 
                                                             *lvim-common.setup()*
 require("lvim-common").setup({opts})
 
-Merges {opts} in place: `gx` opts merge into the live `lvim-common.config.gx`;
-`colorcolumn` opts are read directly by its setup. Both modules are opt-in (set
-up only when their key is present). The quit dialog is configured per call, not
-through setup(). See the README for the FULL default config; the gx option set is
-documented as `GxConfig` in `lua/lvim-common/gx.lua`.
+Merges {opts} in place: `gx` and `print` opts merge into the live
+`lvim-common.config.gx` / `.print`; `colorcolumn` opts are read directly by its
+setup. colorcolumn and gx are opt-in (set up only when their key is present);
+:LvimPrint is registered either way. The quit dialog is configured per call,
+not through setup(). See the README for the FULL default config; the option
+sets are documented as `GxConfig` in `lua/lvim-common/gx.lua` and
+`LvimPrintConfig` in `lua/lvim-common/print.lua`.
+
+print defaults: >lua
+    print = {
+        browser = nil,      -- nil = first Chromium-family browser on $PATH
+        printer = nil,      -- the dialog's initial printer; nil = CUPS default
+        number_lines = true,
+        font_size = "9pt",
+        header = true,      -- file name on top, "page / pages" at the bottom
+        page = { size = "A4", orientation = "portrait", margin = "14mm 12mm" },
+        pdf = { colors = "theme" },
+        printers = {        -- per CUPS destination; ["*"] = the base
+            ["*"] = { colors = "mono", copies = 1, options = {} },
+            -- ["ECOSYS-P2135dn"] = { duplex = "long",
+            --                        options = { KCEcoprint = "On" } },
+        },
+    }
+<
 
 vim:tw=78:ts=8:ft=help:norl:

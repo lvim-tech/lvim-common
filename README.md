@@ -19,11 +19,21 @@ one plugin:
   and are read by lookup rather than top to bottom. `:LvimLuaTable sort`.
 - **eval** — run an Ex command (`:version`) or a Lua expression (`1+1`) and show what it produced in the shared
   read-only viewer. `print` output during the call is captured too. `:LvimEval`.
+- **print** — print the buffer, or a range of it, to a printer or to a PDF — what `:hardcopy` did before
+  Neovim 0.9 removed it. `:LvimPrint` opens a dialog in the middle of the screen: the target (a PDF or any
+  CUPS printer), the lines, colours, line numbers, paper, orientation, copies and two-sided printing — each
+  printer starting from its own settings. The page is the editor's own rendering (Neovim's bundled `tohtml`:
+  the colorscheme, treesitter and syntax highlighting), always with ABSOLUTE line numbers and every fold open,
+  whatever `'relativenumber'` / `'statuscolumn'` your window uses; a headless Chromium lays it out, with the
+  file name on every page and a page counter.
 
 ## Requirements
 
 Requires **Neovim >= 0.12.x**, [lvim-utils](https://github.com/lvim-tech/lvim-utils) (base — gx uses it) and
 [lvim-ui](https://github.com/lvim-tech/lvim-ui) (the quit dialog builds on its float toolkit).
+
+`:LvimPrint` also needs a Chromium-family browser (chromium, google-chrome, brave or edge — Firefox has no
+command-line print-to-PDF) and, for paper, CUPS (`lp`). `:checkhealth lvim-common` reports each link.
 
 ## Installation
 
@@ -56,6 +66,10 @@ activate it with defaults). The quit dialog needs no setup — open it on demand
 :LvimComments  " strip every comment from the buffer (`strip` is the default subcommand)
 :LvimLuaTable  " sort the buffer's Lua bracket-key lines (`sort`)
 :LvimEval      " run an Ex command or Lua expression, show the output
+:LvimPrint                 " the print dialog (target, lines, colours, paper, copies, two-sided)
+:LvimPrint pdf [file]      " straight to a PDF — without a file, asks (default: the buffer's name, .pdf)
+:LvimPrint printer [dest]  " straight to a printer, with its settings — without a destination, the default
+:'<,'>LvimPrint …          " any of them, for the selected lines only
 ```
 
 ```lua
@@ -64,12 +78,16 @@ common.gx.map_default() -- bind `gx` in normal mode to :GxOpen
 common.gx.open_current() -- trigger GxOpen at the cursor programmatically
 common.quit.open() -- open the quit dialog (quits immediately if nothing is unsaved)
 common.quit.open({ confirm = false }) -- skip the dialog, force :qa!
+common.print.open() -- the print dialog
+common.print.to_pdf("~/out.pdf") -- the current buffer to a PDF
+common.print.to_printer(nil, { 10, 40 }) -- lines 10-40 to the default printer, with its settings
 ```
 
 ## Configuration
 
-`setup()` merges your options in place. The `gx` opts merge into the live `lvim-common.config.gx`; the
-`colorcolumn` opts are read directly by its setup. The full default config:
+`setup()` merges your options in place. The `gx` and `print` opts merge into the live
+`lvim-common.config.gx` / `.print`; the `colorcolumn` opts are read directly by its setup. The full default
+config:
 
 ```lua
 require("lvim-common").setup({
@@ -106,6 +124,35 @@ require("lvim-common").setup({
         -- Register your own file-manager adapter: a flat def
         -- `{ name = "id", detect = function(ctx) … end, get = function(ctx) return { path, type } end }`.
         extra_adapters = {},
+    },
+
+    -- print — :LvimPrint is registered either way; these are its defaults.
+    print = {
+        browser = nil, -- nil = the first Chromium-family browser on $PATH; a name or a list to choose
+        printer = nil, -- the dialog's initial printer; nil = the CUPS default destination (`lpstat -d`)
+        number_lines = true, -- always ABSOLUTE numbers, whatever 'relativenumber' / 'statuscolumn' say
+        font_size = "9pt",
+        header = true, -- file name at the top of each page, "page / pages" at the bottom
+        page = {
+            size = "A4", -- "A4" | "A5" | "A3" | "Letter" | "Legal"
+            orientation = "portrait", -- "portrait" | "landscape"
+            margin = "14mm 12mm",
+        },
+        pdf = {
+            colors = "theme", -- "theme": the colorscheme, background included | "mono": black on white
+        },
+        -- Per CUPS destination (as `lpstat -e` names it); ["*"] is the base every printer starts from.
+        -- These are the dialog's starting values, and what `:LvimPrint printer` uses as is.
+        printers = {
+            ["*"] = {
+                colors = "mono", -- a dark background from a laser printer is a page of toner
+                copies = 1,
+                -- duplex = "long", -- unset = the printer's default | false = one-sided | "long" | "short"
+                -- paper = "A4", -- unset = page.size; sent as `lp -o media=`
+                options = {}, -- raw CUPS options: { KCEcoprint = "On" } → `lp -o KCEcoprint=On`
+            },
+            -- ["ECOSYS-P2135dn"] = { duplex = "long", options = { KCEcoprint = "On" } },
+        },
     },
 })
 ```

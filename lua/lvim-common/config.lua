@@ -1,7 +1,8 @@
--- lvim-common.config: the live config for the lvim-common bundle. It currently holds the gx module's defaults
--- only — the colorcolumn and quit modules are opts-driven (configured through their own setup() / open()
--- calls, not through a shared config table). `setup()` merges the user's `gx = {…}` into `M.gx` in place;
--- gx reads `require("lvim-common.config").gx`. Field docs live on `GxConfig` in lua/lvim-common/gx.lua.
+-- lvim-common.config: the live config for the lvim-common bundle. It holds the defaults of the gx and print
+-- modules — the colorcolumn and quit modules are opts-driven (configured through their own setup() / open()
+-- calls, not through a shared config table). `setup()` merges the user's `gx = {…}` / `print = {…}` into
+-- `M.gx` / `M.print` in place, and each module reads its table live. Field docs live on `GxConfig` in
+-- lua/lvim-common/gx.lua and `LvimPrintConfig` in lua/lvim-common/print.lua.
 --
 ---@module "lvim-common.config"
 
@@ -35,6 +36,34 @@ M.gx = {
     },
 
     extra_adapters = {},
+}
+
+---@type LvimPrintConfig
+M.print = {
+    browser = nil, -- nil = the first Chromium-family browser on $PATH; a name or a list to choose
+    printer = nil, -- the dialog's initial printer; nil = the CUPS default destination (`lpstat -d`)
+    number_lines = true, -- always ABSOLUTE numbers, whatever 'relativenumber' / 'statuscolumn' the window has
+    font_size = "9pt",
+    header = true, -- file name at the top of each page, "page / pages" at the bottom
+    page = {
+        size = "A4", -- "A4" | "A5" | "A3" | "Letter" | "Legal"
+        orientation = "portrait", -- "portrait" | "landscape"
+        margin = "14mm 12mm",
+    },
+    pdf = {
+        colors = "theme", -- the page looks like the screen, background included
+    },
+    -- Per CUPS destination. ["*"] is the base every printer starts from; an entry named after a printer
+    -- (as `lpstat -e` lists it) is laid over it. These are the dialog's starting values for that printer.
+    printers = {
+        ["*"] = {
+            colors = "mono", -- black on white: a dark background from a laser printer is a page of toner
+            copies = 1,
+            -- duplex: unset = the printer's own default; false = one-sided; "long" | "short" = the edge to flip on
+            -- paper: unset = page.size; the sheet the printer feeds (sent as `-o media=`)
+            options = {}, -- raw CUPS options, e.g. { KCEcoprint = "On" } → `lp -o KCEcoprint=On`
+        },
+    },
 }
 
 return M

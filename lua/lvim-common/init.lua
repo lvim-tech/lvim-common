@@ -6,7 +6,8 @@
 --   quit        — a quit dialog that lets you choose which unsaved buffers to save before quitting;
 --   comments    — strip every comment from the buffer, through treesitter (:LvimComments strip);
 --   lua_table   — sort a Lua table's bracket-key lines alphabetically (:LvimLuaTable sort);
---   eval        — run an Ex command or Lua expression and show the output (:LvimEval).
+--   eval        — run an Ex command or Lua expression and show the output (:LvimEval);
+--   print       — print the buffer or a range of it, to a printer or to a PDF (:LvimPrint).
 --
 -- Each module is independent and reachable through the aggregate (`require("lvim-common").gx`, `.quit`,
 -- `.colorcolumn`). setup() merges the `colorcolumn` / `gx` opts and activates those two; the quit dialog is
@@ -23,10 +24,12 @@ M.quit = require("lvim-common.quit")
 M.comments = require("lvim-common.comments")
 M.lua_table = require("lvim-common.lua_table")
 M.eval = require("lvim-common.eval")
+M.print = require("lvim-common.print")
 
 ---@class LvimCommonOpts
 ---@field colorcolumn? table    colorcolumn opts (enabled / exclude_ft)
 ---@field gx? GxConfig|false     gx opts (merged into lvim-common.config.gx); false / nil = leave gx inactive
+---@field print? LvimPrintConfig  print opts (merged into lvim-common.config.print); :LvimPrint exists either way
 
 --- Activate the opt-in modules. `colorcolumn` is set up only when its opts are given; `gx` is set up when its
 --- opts are given (pass `gx = {}` to activate it with defaults). The `:LvimQuit` command (the save-selected
@@ -39,6 +42,9 @@ function M.setup(opts)
     end
     if opts.gx then
         M.gx.setup(opts.gx)
+    end
+    if opts.print then
+        require("lvim-utils.utils").merge(M.config.print, opts.print)
     end
     -- The quit dialog is opened on demand; register its command so setup() gives it (like the other plugins'
     -- :Lvim* commands). `:LvimQuit` lists the unsaved buffers to choose which to save before quitting.
@@ -76,6 +82,12 @@ function M.setup(opts)
     pcall(vim.api.nvim_create_user_command, "LvimEval", function()
         M.eval.open()
     end, { desc = "lvim-common: run an Ex command or Lua expression and show the output" })
+    pcall(vim.api.nvim_create_user_command, "LvimPrint", M.print.command, {
+        nargs = "*",
+        range = true,
+        complete = M.print.complete,
+        desc = "lvim-common: print the buffer (or a range) — :LvimPrint [pdf [file] | printer [dest]]",
+    })
 end
 
 return M
