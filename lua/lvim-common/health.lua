@@ -34,7 +34,9 @@ function M.check()
     end
 
     -- Modules load.
-    for _, mod in ipairs({ "colorcolumn", "gx", "quit", "print" }) do
+    -- Every module, including the on-demand ones setup() gives a command to (:LvimComments / :LvimLuaTable /
+    -- :LvimEval) — a broken one used to go unreported here.
+    for _, mod in ipairs({ "colorcolumn", "gx", "quit", "comments", "lua_table", "eval", "print" }) do
         if has("lvim-common." .. mod) then
             health.ok(mod .. " module loaded")
         else
