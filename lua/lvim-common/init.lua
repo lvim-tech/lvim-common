@@ -10,8 +10,9 @@
 --   print       — print the buffer or a range of it, to a printer or to a PDF (:LvimPrint).
 --
 -- Each module is independent and reachable through the aggregate (`require("lvim-common").gx`, `.quit`,
--- `.colorcolumn`). setup() merges the `colorcolumn` / `gx` opts and activates those two; the quit dialog is
--- opened on demand (`require("lvim-common").quit.open()`), so it has no setup step.
+-- `.colorcolumn`). setup() merges the `colorcolumn` / `gx` / `print` opts, activates colorcolumn and gx, and
+-- registers the on-demand commands (:LvimQuit, :LvimComments, :LvimLuaTable, :LvimEval, :LvimPrint); the quit
+-- dialog itself is opened on demand (`require("lvim-common").quit.open()` or :LvimQuit).
 --
 ---@module "lvim-common"
 
