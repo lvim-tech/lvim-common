@@ -25,7 +25,7 @@ one plugin:
   printer starting from its own settings. The page is the editor's own rendering (Neovim's bundled `tohtml`:
   the colorscheme, treesitter and syntax highlighting), always with ABSOLUTE line numbers and every fold open,
   whatever `'relativenumber'` / `'statuscolumn'` your window uses; a headless Chromium lays it out, with the
-  file name on every page and a page counter.
+  file's path in its project (`lvim-common/lua/lvim-common/print.lua`) on every page and a page counter.
 
 ## Requirements
 
@@ -132,7 +132,7 @@ require("lvim-common").setup({
         printer = nil, -- the dialog's initial printer; nil = the CUPS default destination (`lpstat -d`)
         number_lines = true, -- always ABSOLUTE numbers, whatever 'relativenumber' / 'statuscolumn' say
         font_size = "9pt",
-        header = true, -- file name at the top of each page, "page / pages" at the bottom
+        header = true, -- the file's path in its project on top of each page, "page / pages" at the bottom
         page = {
             size = "A4", -- "A4" | "A5" | "A3" | "Letter" | "Legal"
             orientation = "portrait", -- "portrait" | "landscape"

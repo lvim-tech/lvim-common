@@ -44,7 +44,7 @@ M.print = {
     printer = nil, -- the dialog's initial printer; nil = the CUPS default destination (`lpstat -d`)
     number_lines = true, -- always ABSOLUTE numbers, whatever 'relativenumber' / 'statuscolumn' the window has
     font_size = "9pt",
-    header = true, -- file name at the top of each page, "page / pages" at the bottom
+    header = true, -- the file's path in its project on top of each page, "page / pages" at the bottom
     page = {
         size = "A4", -- "A4" | "A5" | "A3" | "Letter" | "Legal"
         orientation = "portrait", -- "portrait" | "landscape"

@@ -42,7 +42,7 @@ local M = {}
 ---@field printer?     string                              the dialog's initial printer; nil = the CUPS default
 ---@field number_lines boolean                             print line numbers (always absolute)
 ---@field font_size    string                              CSS font size of the code
----@field header       boolean                             file name on top of every page, "page / pages" at the bottom
+---@field header       boolean                             the path in the project on top, "page / pages" at the bottom
 ---@field page         LvimPrintPage
 ---@field pdf          { colors: LvimPrintColors }
 ---@field printers     table<string, LvimPrintPrinter>     per CUPS destination; ["*"] = the base for every printer
@@ -393,12 +393,13 @@ local function stylesheet(job, title, numwidth)
     return css
 end
 
---- The page title: the file name, and the lines when only some of them are printed.
+--- The page title: the file's path inside its project (`lvim-common/lua/lvim-common/print.lua`, the
+--- same name the quit dialog gives it), and the lines when only some of them are printed.
 ---@param range? integer[]
 ---@return string
 local function title_of(range)
     local name = vim.api.nvim_buf_get_name(0)
-    local title = name ~= "" and vim.fn.fnamemodify(name, ":t") or "[No Name]"
+    local title = name ~= "" and require("lvim-common.path").in_project(name) or "[No Name]"
     if range then
         title = ("%s  %d–%d"):format(title, range[1], range[2])
     end

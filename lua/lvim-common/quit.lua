@@ -16,19 +16,6 @@ local M = {}
 
 -- ─── path label ─────────────────────────────────────────────────────────────────
 
--- Project-root markers, checked upward from the file (git first); the label is shown RELATIVE to the nearest.
-local ROOT_MARKERS = {
-    ".git",
-    ".hg",
-    ".svn",
-    "package.json",
-    "Cargo.toml",
-    "go.mod",
-    "pyproject.toml",
-    "stylua.toml",
-    "Makefile",
-}
-
 --- Middle-elide a path to ≤ `max` display cells, keeping the FIRST crumb + the trailing components (the file
 --- name and as many parent dirs as fit), joined by "…". Component-aware (breaks on "/"), so the file name is
 --- never cut. Falls back to a hard end-clip only when even the name will not fit.
@@ -72,13 +59,7 @@ local function file_label(name)
     if name == "" then
         return nil, 0
     end
-    local rel
-    local root = vim.fs.root(name, ROOT_MARKERS)
-    if root and root ~= "" and (name == root or vim.startswith(name, root .. "/")) then
-        rel = vim.fn.fnamemodify(root, ":t") .. "/" .. name:sub(#root + 2) -- "<project>/<path-from-root>"
-    else
-        rel = vim.fn.fnamemodify(name, ":~:.") -- cwd- or home-relative
-    end
+    local rel = require("lvim-common.path").in_project(name) -- "<project>/<path-from-root>"
     local max = math.max(30, math.floor(vim.o.columns * 0.6))
     rel = elide_middle(rel, max)
     local name_at = rel:match("^.*()/[^/]*$") -- byte count of everything up to + including the last "/"

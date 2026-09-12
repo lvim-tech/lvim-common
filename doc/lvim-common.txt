@@ -123,9 +123,10 @@ print ~                                                        *:LvimPrint*
     The page is the editor's own rendering: Neovim's bundled `tohtml` (the
     optional package nvim.tohtml, added on first use) turns the buffer into
     HTML with the colorscheme, treesitter and syntax highlighting; a headless
-    Chromium lays it out on paper, with the file name at the top of every
-    page and "page / pages" at the bottom; `lp` sends it to CUPS. Long lines
-    wrap, and the continuation lines up after the numbers.
+    Chromium lays it out on paper, with the file's path in its project
+    (`<project>/<path>`, the name the quit dialog gives it) at the top of
+    every page and "page / pages" at the bottom; `lp` sends it to CUPS. Long
+    lines wrap, and the continuation lines up after the numbers.
 
     It is rendered from a hidden window of its own, so the page never
     depends on how YOUR window looks: line numbers are always absolute
@@ -165,7 +166,7 @@ print defaults: >lua
         printer = nil,      -- the dialog's initial printer; nil = CUPS default
         number_lines = true,
         font_size = "9pt",
-        header = true,      -- file name on top, "page / pages" at the bottom
+        header = true,      -- path in the project on top, "page / pages" below
         page = { size = "A4", orientation = "portrait", margin = "14mm 12mm" },
         pdf = { colors = "theme" },
         printers = {        -- per CUPS destination; ["*"] = the base
