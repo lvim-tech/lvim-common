@@ -69,7 +69,10 @@ function M.setup(opts)
     })
     pcall(vim.api.nvim_create_user_command, "LvimLuaTable", function(cmd)
         if cmd.args == "" or cmd.args == "sort" then
-            M.lua_table.sort()
+            -- `cmd.range == 0` means no range was typed: sort the whole buffer. With a range
+            -- (`:'<,'>LvimLuaTable`) only those lines are considered, which is how one table in a
+            -- file full of them is sorted on its own.
+            M.lua_table.sort(cmd.range > 0 and cmd.line1 or nil, cmd.range > 0 and cmd.line2 or nil)
         else
             vim.notify("lvim-common: unknown :LvimLuaTable subcommand '" .. cmd.args .. "'", vim.log.levels.WARN)
         end
@@ -78,6 +81,7 @@ function M.setup(opts)
         complete = function()
             return { "sort" }
         end,
+        range = true,
         desc = "lvim-common: sort a Lua table's bracket-key lines",
     })
     pcall(vim.api.nvim_create_user_command, "LvimEval", function()
