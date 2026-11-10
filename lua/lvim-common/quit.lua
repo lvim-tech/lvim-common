@@ -93,6 +93,44 @@ local function try_write(bufnr, fname)
     return vim.uv.fs_stat(fname) ~= nil
 end
 
+--- The editor to go back to instead of quitting: on the server end of `:connect ssh://`, the address of the
+--- client Neovim the UI came from, when the plugin that opened the session recorded it in
+--- `g:lvim_remote_client` (lvim-space does). Nil anywhere else.
+---@return string|nil
+function M.return_address()
+    local ok, reason = pcall(function()
+        return vim.v.startreason
+    end)
+    local addr = vim.g.lvim_remote_client
+    if ok and reason == "remote-ssh" and type(addr) == "string" and addr ~= "" then
+        return addr
+    end
+    return nil
+end
+
+--- Quit, or, on a remote-ssh server with a client to go back to, hand the UI back to that client and stop
+--- this server (`:connect!`): the user lands in the local editor they connected from. `force` drops unsaved
+--- changes first (`:connect!` would otherwise keep a modified server running in the background).
+---@param force boolean
+function M.quit_all(force)
+    local addr = M.return_address()
+    if addr then
+        if force then
+            for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].modified then
+                    pcall(function()
+                        vim.bo[b].modified = false
+                    end)
+                end
+            end
+        end
+        if pcall(vim.cmd, "connect! " .. vim.fn.fnameescape(addr)) then
+            return
+        end
+    end
+    vim.cmd(force and "qa!" or "qa")
+end
+
 --- Issue :qa or :qa! depending on whether any buffer is still dirty.
 --- When `saved` is provided, only checks the buffers that were in the
 --- original unsaved list; otherwise scans all loaded normal buffers.
@@ -117,7 +155,7 @@ local function finalize_quit(saved, unsaved_buffers)
             end
         end
     end
-    vim.cmd(dirty and "qa!" or "qa")
+    M.quit_all(dirty)
 end
 
 -- ─── public API ───────────────────────────────────────────────────────────────
@@ -129,7 +167,7 @@ function M.open(opts)
 
     -- confirm = false: skip the dialog entirely and force-quit, discarding unsaved changes.
     if opts.confirm == false then
-        vim.cmd("qa!")
+        M.quit_all(true)
         return
     end
 
@@ -146,7 +184,7 @@ function M.open(opts)
 
     -- Fast path.
     if #unsaved == 0 then
-        vim.cmd("qa")
+        M.quit_all(false)
         return
     end
 
@@ -265,7 +303,7 @@ function M.open(opts)
         run = function(_, close_fn)
             close_fn(true, nil)
             vim.schedule(function()
-                vim.cmd("qa!")
+                M.quit_all(true)
             end)
         end,
     })
@@ -308,7 +346,7 @@ function M.open(opts)
                 run = function(st)
                     st.close()
                     vim.schedule(function()
-                        vim.cmd("qa!")
+                        M.quit_all(true)
                     end)
                 end,
             },
