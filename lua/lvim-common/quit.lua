@@ -68,10 +68,26 @@ end
 
 -- ─── helpers ──────────────────────────────────────────────────────────────────
 
----Write a buffer to disk, creating parent dirs as needed.
+--- The buffer types whose changes `:qa` ignores (Neovim's `bt_dontwrite`). Every other type counts — an
+--- `acwrite` buffer (written by a BufWriteCmd: a file manager's edit buffer, a request body) and a `help`
+--- buffer too — so a dialog that skipped them said "nothing unsaved" and `:qa` then failed with E37.
+local DONTWRITE = { nofile = true, nowrite = true, terminal = true, prompt = true }
+
+--- Whether `:qa` would refuse to quit over buffer `b`.
+---@param b integer
+---@return boolean
+function M.is_unsaved(b)
+    return vim.api.nvim_buf_is_valid(b)
+        and vim.api.nvim_buf_is_loaded(b)
+        and vim.bo[b].modified
+        and not DONTWRITE[vim.bo[b].buftype]
+end
+
+---Write a buffer to disk, creating parent dirs as needed. An `acwrite` buffer is written by its own
+---BufWriteCmd (its name is not a path).
 ---@param bufnr integer
 ---@param fname? string  Defaults to buffer name.
----@return boolean  true when file exists on disk after write.
+---@return boolean  true when the write took: the buffer is no longer modified (and a plain file exists).
 local function try_write(bufnr, fname)
     if not vim.api.nvim_buf_is_valid(bufnr) then
         return false
@@ -80,17 +96,20 @@ local function try_write(bufnr, fname)
     if fname == "" then
         return false
     end
-    local dir = vim.fn.fnamemodify(fname, ":h")
-    if dir ~= "" and vim.fn.isdirectory(dir) == 0 then
-        vim.fn.mkdir(dir, "p")
+    local acwrite = vim.bo[bufnr].buftype == "acwrite"
+    if not acwrite then
+        local dir = vim.fn.fnamemodify(fname, ":h")
+        if dir ~= "" and vim.fn.isdirectory(dir) == 0 then
+            vim.fn.mkdir(dir, "p")
+        end
     end
     local ok = pcall(vim.api.nvim_buf_call, bufnr, function()
         vim.cmd("silent keepalt write! " .. vim.fn.fnameescape(fname))
     end)
-    if not ok then
+    if not ok or vim.bo[bufnr].modified then
         return false
     end
-    return vim.uv.fs_stat(fname) ~= nil
+    return acwrite or vim.uv.fs_stat(fname) ~= nil
 end
 
 --- The editor to go back to instead of quitting: on the server end of `:connect ssh://`, the address of the
@@ -128,7 +147,11 @@ function M.quit_all(force)
             return
         end
     end
-    vim.cmd(force and "qa!" or "qa")
+    local ok, err = pcall(vim.cmd, force and "qa!" or "qa")
+    if not ok then
+        -- `:qa` still refused (a buffer changed after the dialog looked): say so, do not throw.
+        vim.notify(tostring(err):gsub("^.-(E%d+:)", "%1"), vim.log.levels.WARN)
+    end
 end
 
 --- Issue :qa or :qa! depending on whether any buffer is still dirty.
@@ -148,8 +171,8 @@ local function finalize_quit(saved, unsaved_buffers)
             end
         end
     else
-        for _, info in ipairs(vim.fn.getbufinfo({ bufloaded = 1 })) do
-            if info.changed == 1 and vim.bo[info.bufnr].buftype == "" then
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+            if M.is_unsaved(b) then
                 dirty = true
                 break
             end
@@ -173,11 +196,10 @@ function M.open(opts)
 
     local ui = require("lvim-ui")
 
-    -- Collect unsaved normal buffers.
+    -- Collect every buffer `:qa` would refuse over.
     local unsaved = {}
-    for _, info in ipairs(vim.fn.getbufinfo({ bufloaded = 1 })) do
-        local b = info.bufnr
-        if info.changed == 1 and vim.api.nvim_buf_is_valid(b) and vim.bo[b].buftype == "" then
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if M.is_unsaved(b) then
             table.insert(unsaved, b)
         end
     end
